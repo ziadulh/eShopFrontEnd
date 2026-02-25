@@ -1,0 +1,32 @@
+Execution flow for GET /admin
+
+1) Router resolution
+- Next.js App Router resolves the URL `/admin`.
+- It finds route files under the `app` directory matching the segment `admin`.
+
+2) Layout composition (server-rendered)
+- `app/layout.tsx` (Root layout) is rendered first. It provides the outer HTML and global wrappers (fonts, <html>, <body>).
+- Next, nested layouts are composed for the `admin` segment.
+- `app/admin/layout.tsx` is rendered inside the root layout. This file defines the admin shell: sidebar, header, main area, and footer.
+
+3) Page content insertion
+- `app/admin/page.tsx` is rendered and its output is passed as the `children` prop into `app/admin/layout.tsx`.
+- The page contains the Dashboard content (stats, recent activity, quick actions).
+
+4) Client components and hydration (client-side)
+- `components/Sidebar.tsx` and `components/Header.tsx` include the "use client" directive and React hooks. They are sent to the browser and hydrate there.
+- `Header` uses `useState`, `useRef`, and `useEffect` for dropdowns and notifications.
+- `Sidebar` uses `usePathname` from `next/navigation` to mark active items.
+
+5) Notes and behavior
+- The server composes HTML for layouts and pages (server components by default). Client components mount and become interactive after hydration.
+- Navigating to other admin routes (e.g., `/admin/users`) will reuse `app/layout.tsx` and `app/admin/layout.tsx`; only the nested page component changes.
+
+Key files referenced:
+- app/layout.tsx
+- app/admin/layout.tsx
+- app/admin/page.tsx
+- components/Sidebar.tsx
+- components/Header.tsx
+
+End of summary.
