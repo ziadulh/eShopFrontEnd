@@ -1,5 +1,6 @@
 "use client";
 
+import Cookies from "js-cookie";
 import { useState, useRef, useEffect } from "react";
 import {
   Menu,
@@ -69,11 +70,17 @@ export default function Header({
   }, []);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
+    const savedUser = localStorage.getItem("user");
     if (savedUser) {
       setUserData(JSON.parse(savedUser));
     }
   }, []);
+
+  const handleLogout = () => {
+    Cookies.remove("token", { path: "/" });
+    localStorage.removeItem("user");
+    window.location.href = "/login";
+  };
 
   return (
     <header className="h-16 sticky top-0 z-40 transition-all bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-6">
@@ -162,13 +169,16 @@ export default function Header({
                   Signed in as
                 </p>
                 <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate mt-1">
-                  ziadul@example.com
+                  {userData?.email || "No Email Found"}
                 </p>
               </div>
               <button className="flex items-center gap-3 w-full px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                 <User size={18} /> Profile
               </button>
-              <button className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 border-t border-slate-100 dark:border-slate-800 mt-2 pt-2 font-bold transition-colors">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 border-t border-slate-100 dark:border-slate-800 mt-2 pt-2 font-bold transition-colors"
+              >
                 <LogOut size={18} /> Logout
               </button>
             </div>

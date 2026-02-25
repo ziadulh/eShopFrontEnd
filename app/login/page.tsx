@@ -31,22 +31,25 @@ export default function LoginPage() {
       const response = await apiClient.post("/login", { email, password });
 
       if (response.data.token) {
-        // 1. Manually set the cookie named 'token'
-        // This allows your middleware to "see" it on the next request
         Cookies.set("token", response.data.token, {
-          expires: 1, // 1 day
+          expires: 1,
           path: "/",
           sameSite: "lax",
         });
 
-        // 2. Optional: Save user info to localStorage for the Header to use
-        localStorage.setItem("user", JSON.stringify(response.data.user));
+        const userData = {
+          ...response.data.user,
+          permissions: response.data.permissions,
+        };
 
-        // 3. Now redirect
+        localStorage.setItem("user", JSON.stringify(userData));
+
         router.push("/admin");
       }
     } catch (err: any) {
       setError("Login failed. Please check your credentials.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
