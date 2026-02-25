@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Edit, Trash2, Search, UserPlus, X, Shield } from "lucide-react";
 import apiClient from "@/lib/axios";
 import { toast } from "sonner";
+import Link from "next/link";
 
 export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
   const [users, setUsers] = useState(initialUsers);
@@ -53,12 +54,12 @@ export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
           />
         </div>
         {hasPerm("users.store") && (
-          <button
-            onClick={() => setIsDrawerOpen(true)}
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20"
+          <Link
+            href="/admin/users/create"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 active:scale-95"
           >
             <UserPlus size={18} /> Add New User
-          </button>
+          </Link>
         )}
       </div>
 
@@ -108,7 +109,7 @@ export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                     {hasPerm("users.update") && (
                       <button className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all">
                         <Edit size={16} />

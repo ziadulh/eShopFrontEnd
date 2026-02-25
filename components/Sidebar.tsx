@@ -17,12 +17,12 @@ import {
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/admin" },
   {
-    name: "User Management",
+    name: "User",
     icon: Users,
     href: "/admin/users",
     children: [
-      { name: "User List", href: "/admin/users", icon: List },
-      { name: "Create User", href: "/admin/users/create", icon: UserPlus },
+      { name: "List", href: "/admin/users", icon: List },
+      { name: "Create", href: "/admin/users/create", icon: UserPlus },
     ],
   },
   { name: "Roles", icon: ShieldCheck, href: "/admin/roles" },
