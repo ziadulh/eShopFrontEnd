@@ -14,6 +14,12 @@ import {
   Info,
 } from "lucide-react";
 
+interface UserData {
+  name: string;
+  role: string;
+  email?: string;
+}
+
 const notifications = [
   {
     id: 1,
@@ -48,7 +54,11 @@ export default function Header({
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
-  const [userData, setUserData] = useState({ name: "User", role: "Staff" });
+  const [userData, setUserData] = useState<UserData>({
+    name: "User",
+    role: "Staff",
+    email: "",
+  });
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifyRef = useRef<HTMLDivElement>(null);
 
@@ -72,7 +82,12 @@ export default function Header({
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
-      setUserData(JSON.parse(savedUser));
+      try {
+        const parsed = JSON.parse(savedUser);
+        setUserData(parsed); // এখন আর টাইপ এরর দিবে না
+      } catch (e) {
+        console.error("User data parsing failed");
+      }
     }
   }, []);
 
