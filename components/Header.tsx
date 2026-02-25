@@ -47,6 +47,7 @@ export default function Header({
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
+  const [userData, setUserData] = useState({ name: "User", role: "Staff" });
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifyRef = useRef<HTMLDivElement>(null);
 
@@ -65,6 +66,13 @@ export default function Header({
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUserData(JSON.parse(savedUser));
+    }
   }, []);
 
   return (
@@ -136,9 +144,9 @@ export default function Header({
             className="flex items-center gap-3 cursor-pointer p-1.5 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg transition-colors"
           >
             <div className="hidden md:block text-right text-slate-900 dark:text-slate-100">
-              <p className="text-sm font-bold leading-none">Ziadul Haque</p>
+              <p className="text-sm font-bold leading-none">{userData.name}</p>
               <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">
-                Super Admin
+                {userData.role}
               </p>
             </div>
             <UserCircle
