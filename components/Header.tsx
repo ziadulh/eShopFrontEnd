@@ -13,7 +13,6 @@ import {
   Info,
 } from "lucide-react";
 
-// Sample notifications data
 const notifications = [
   {
     id: 1,
@@ -39,14 +38,6 @@ const notifications = [
     color: "text-red-500",
     bg: "bg-red-100 dark:bg-red-900/30",
   },
-  {
-    id: 4,
-    title: "Backup completed",
-    time: "Yesterday",
-    icon: Info,
-    color: "text-slate-500",
-    bg: "bg-slate-100 dark:bg-slate-800",
-  },
 ];
 
 export default function Header({
@@ -56,11 +47,9 @@ export default function Header({
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
-
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifyRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -79,7 +68,7 @@ export default function Header({
   }, []);
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-40 transition-colors">
+    <header className="h-16 sticky top-0 z-40 transition-all bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-6">
       <div className="flex items-center gap-4">
         <button
           onClick={toggleSidebar}
@@ -93,7 +82,7 @@ export default function Header({
       </div>
 
       <div className="flex items-center gap-2 lg:gap-4">
-        {/* Notifications Dropdown */}
+        {/* Notifications */}
         <div className="relative" ref={notifyRef}>
           <button
             onClick={() => {
@@ -107,26 +96,12 @@ export default function Header({
           </button>
 
           {isNotifyOpen && (
-            <div
-              className={`
-      /* POSITIONING */
-      fixed top-16 right-4 left-4    /* Mobile: 16px from edges */
-      lg:absolute lg:top-auto lg:right-0 lg:left-auto lg:mt-2 /* Desktop: Aligned to icon */
-      
-      /* STYLING */
-      lg:w-80 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 
-      dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in duration-200
-    `}
-            >
+            <div className="fixed top-16 right-4 left-4 lg:absolute lg:top-auto lg:right-0 lg:left-auto lg:mt-2 lg:w-80 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in duration-200">
               <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                 <span className="font-bold text-slate-900 dark:text-slate-100">
                   Notifications
                 </span>
-                <button className="text-xs text-blue-600 hover:underline">
-                  Mark all as read
-                </button>
               </div>
-
               <div className="max-h-[300px] overflow-y-auto">
                 {notifications.map((n) => (
                   <div
@@ -145,12 +120,6 @@ export default function Header({
                   </div>
                 ))}
               </div>
-
-              <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 mt-1 text-center">
-                <button className="text-sm text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 transition-colors">
-                  View all notifications
-                </button>
-              </div>
             </div>
           )}
         </div>
@@ -166,10 +135,8 @@ export default function Header({
             }}
             className="flex items-center gap-3 cursor-pointer p-1.5 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg transition-colors"
           >
-            <div className="hidden md:block text-right">
-              <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-none">
-                Ziadul Haque
-              </p>
+            <div className="hidden md:block text-right text-slate-900 dark:text-slate-100">
+              <p className="text-sm font-bold leading-none">Ziadul Haque</p>
               <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">
                 Super Admin
               </p>
@@ -181,22 +148,19 @@ export default function Header({
           </div>
 
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in duration-200">
+            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in duration-200">
               <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 mb-1">
-                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                <p className="text-xs font-bold text-slate-400 uppercase">
                   Signed in as
                 </p>
-                <p className="text-xs text-slate-500 truncate">
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate mt-1">
                   ziadul@example.com
                 </p>
               </div>
-              <button className="flex items-center gap-3 w-full px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+              <button className="flex items-center gap-3 w-full px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                 <User size={18} /> Profile
               </button>
-              <button className="flex items-center gap-3 w-full px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                <SettingsIcon size={18} /> Account Settings
-              </button>
-              <button className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 border-t border-slate-100 dark:border-slate-800 mt-2 pt-2 font-medium transition-colors">
+              <button className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 border-t border-slate-100 dark:border-slate-800 mt-2 pt-2 font-bold transition-colors">
                 <LogOut size={18} /> Logout
               </button>
             </div>

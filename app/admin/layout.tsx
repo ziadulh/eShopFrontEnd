@@ -12,13 +12,9 @@ export default function AdminLayout({
   const [isOpen, setIsOpen] = useState(true);
 
   return (
-    // We add overflow-x-hidden here to kill any potential horizontal scroll
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex overflow-x-hidden transition-colors">
-      {/* 1. Sidebar */}
+    <div className="min-h-screen bg-slate-100 dark:bg-black flex overflow-x-hidden transition-colors">
       <Sidebar isOpen={isOpen} />
 
-      {/* 2. Main Content Area */}
-      {/* We use 'w-full' to ensure it doesn't expand beyond 100vw */}
       <div
         className={`flex-1 flex flex-col min-h-screen w-full transition-all duration-300 ease-in-out 
         ${isOpen ? "lg:pl-64" : "lg:pl-20"}`}
@@ -26,10 +22,13 @@ export default function AdminLayout({
         <Header toggleSidebar={() => setIsOpen(!isOpen)} />
 
         <main className="p-4 lg:p-8 flex-1 w-full max-w-full">
-          <div className="max-w-7xl mx-auto">{children}</div>
+          {/* Content Entrance Animation */}
+          <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {children}
+          </div>
         </main>
 
-        <footer className="p-4 text-center text-xs text-slate-400 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800">
+        <footer className="p-4 text-center text-xs font-medium text-slate-400 dark:text-slate-600 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-black transition-colors">
           © 2026 Admin Panel • Go-Gin Backend
         </footer>
       </div>
@@ -37,7 +36,7 @@ export default function AdminLayout({
       {/* Mobile Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
           onClick={() => setIsOpen(false)}
         />
       )}
