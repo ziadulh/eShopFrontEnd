@@ -12,7 +12,7 @@ export const useChat = () => {
     if (!token) return;
 
     // WebSocket কানেকশন তৈরি (আপনার Go ব্যাকএন্ড URL)
-    socketRef.current = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
+    socketRef.current = new WebSocket(process.env.NEXT_PUBLIC_WEB_SOCKET_URL+`?token=${token}`);
 
     socketRef.current.onmessage = (event) => {
       try {
