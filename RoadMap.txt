@@ -1,0 +1,57 @@
+PROJECT ROADMAP: FURNITURE E-SHOP WITH REAL-TIME CHAT
+-----------------------------------------------------
+Core Stack: Next.js 16 (Turbopack), Go-Gin, WebSockets, PostgreSQL/MySQL.
+Primary Goal: Implementation of Real-time Chat followed by E-shop modules.
+
+PHASE 1: LIVE CHAT SYSTEM (HIGH PRIORITY)
+=========================================
+1.1 Backend - WebSocket Engine (Go)
+    - Install 'gorilla/websocket' package in Gin.
+    - Create a Chat Hub to manage client connections (Rooms).
+    - Implement WebSocket Middleware: Reuse existing JWT logic to authenticate chat users.
+    - Storage: Create 'messages' table (id, sender_id, receiver_id, content, timestamp).
+
+1.2 Frontend - Real-time Client (Next.js)
+    - Create a Shared Chat Hook (useSocket) to manage connection state.
+    - Floating Chat Component (Customer Side): Accessible for all logged-in users.
+    - Admin Chat Panel (Admin Side): A dedicated route /admin/messages.
+    - UI: Use permissions 'hasPerm("chat.admin")' to show/hide the admin response panel.
+
+1.3 Integration - Logic Flow
+    - Customer sends message -> Hub broadcast to Admins -> Admin replies -> Hub sends back to Customer.
+
+PHASE 2: PRODUCT & INVENTORY MANAGEMENT (E-SHOP)
+================================================
+2.1 Backend - Furniture API
+    - Models: Category, Product (Name, Material, Price, Stock, Images).
+    - Routes: 
+        - GET /products (Public)
+        - POST /products (RBAC: products.store)
+    - File Upload: Go middleware for handling furniture image uploads.
+
+2.2 Frontend - Catalog & UI
+    - Product Grid: High-quality furniture display with filters.
+    - Permission Check: "Edit/Delete" buttons on products visible only if hasPerm("products.update").
+
+PHASE 3: SHOPPING CART & ORDERS
+===============================
+3.1 Cart Logic
+    - Zustand or LocalStorage for persistent shopping cart.
+3.2 Order Processing
+    - POST /orders: Create order with status 'Pending'.
+    - Admin Dashboard: Order management list for Staff/Admin.
+
+PHASE 4: PAYMENT & FINALIZATION
+===============================
+4.1 Payment Integration
+    - Integration with Stripe or SSLCommerz.
+4.2 Delivery Tracking
+    - Order status updates (Pending -> Processing -> Shipped -> Delivered).
+
+-----------------------------------------------------
+CURRENT STATUS:
+- Auth: COMPLETED (JWT, Cookies)
+- RBAC: COMPLETED (User, Role, Permission APIs)
+- Build: SUCCESSFUL (Next.js 16 Turbopack)
+- Next Action: Implement WebSocket Hub in Go-Gin.
+-----------------------------------------------------
