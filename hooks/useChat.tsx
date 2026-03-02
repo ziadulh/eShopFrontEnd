@@ -8,13 +8,15 @@ export const useChat = (conversationId?: string) => {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
+  const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.100.184:8080";
+  const webSocketURL = process.env.NEXT_PUBLIC_WEB_SOCKET_URL || "ws://192.168.100.184:8080/ws";
 
   const fetchHistory = useCallback(async (offset: number) => {
     if (!conversationId) return;
     
     const token = Cookies.get("token");
     try {
-      const res = await fetch(`http://localhost:8080/chat/history?conversation_id=${conversationId}&offset=${offset}`, {
+      const res = await fetch(baseURL+`/chat/history?conversation_id=${conversationId}&offset=${offset}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const data = await res.json();
@@ -41,7 +43,7 @@ export const useChat = (conversationId?: string) => {
     fetchHistory(0);
 
     const token = Cookies.get("token");
-    const ws = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
+    const ws = new WebSocket(webSocketURL+`?token=${token}`);
     socketRef.current = ws;
 
     ws.onmessage = (event) => {
