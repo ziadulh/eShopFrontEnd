@@ -13,9 +13,10 @@ export default function GlobalChatBox() {
   const { messages, sendMessage, loadMore, hasMore, isLoadingMore } = useChat(activeConvId || undefined);
   
   const scrollRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null); // নতুন মেসেজের জন্য রেফারেন্স
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isAutoScrolling = useRef(true); 
+  const prevScrollHeightRef = useRef<number>(0);
 
-  // ১. গ্লোবাল ইভেন্ট লিসেনার
   useEffect(() => {
     const saved = localStorage.getItem("user");
     if (saved) setCurrentUser(JSON.parse(saved));
@@ -24,35 +25,48 @@ export default function GlobalChatBox() {
       const { convId, title } = event.detail;
       setActiveConvId(convId);
       setChatTitle(title || "Chat Inbox");
+      isAutoScrolling.current = true; 
     };
 
+    window.dispatchEvent(new Event('chat-box-ready')); // Optional sync
     window.addEventListener("openChat", handleOpenChat);
     return () => window.removeEventListener("openChat", handleOpenChat);
   }, []);
 
-  // ২. অটো-স্ক্রল লজিক (Fixed Scroll Issue)
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // ১. স্ক্রল অ্যাঙ্করিং লজিক (পুরনো মেসেজ লোড হওয়ার সময় পজিশন ধরে রাখা)
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (container && !isAutoScrolling.current && !isLoadingMore) {
+      // পুরনো মেসেজ লোড হওয়ার পর স্ক্রল পজিশন অ্যাডজাস্ট করা
+      const changeInHeight = container.scrollHeight - prevScrollHeightRef.current;
+      container.scrollTop = container.scrollTop + changeInHeight;
+    } else if (container && isAutoScrolling.current) {
+      // নতুন মেসেজ আসলে নিচে নামানো
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isLoadingMore]);
+
+  const handleScroll = () => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    // চেক করা ইউজার নিচে আছে কি না
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
+    isAutoScrolling.current = isAtBottom;
+
+    // ২. পুরনো মেসেজ লোড করা (Error fixed here)
+    if (container.scrollTop === 0 && hasMore && !isLoadingMore) {
+      isAutoScrolling.current = false;
+      prevScrollHeightRef.current = container.scrollHeight;
+      loadMore(); // .then() কল করার দরকার নেই, useEffect[messages] এটি হ্যান্ডেল করবে
+    }
   };
-
-  useEffect(() => {
-    // যখনই মেসেজ লিস্ট পরিবর্তন হবে, নিচে স্ক্রল করবে
-    if (messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [messages]);
-
-  // ৩. চ্যাট বক্স ওপেন হলে স্ক্রল করা
-  useEffect(() => {
-    if (activeConvId) {
-      // চ্যাট ওপেন হওয়ার সময় সামান্য ডিলে দিয়ে স্ক্রল করা (UI রেন্ডার হওয়ার জন্য)
-      setTimeout(scrollToBottom, 100);
-    }
-  }, [activeConvId]);
 
   const onSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim() || !currentUser || !activeConvId) return;
+    
+    isAutoScrolling.current = true; 
     sendMessage(inputMessage, currentUser.id);
     setInputMessage("");
   };
@@ -69,10 +83,7 @@ export default function GlobalChatBox() {
           </div>
           <span className="font-bold text-sm truncate max-w-[150px]">{chatTitle}</span>
         </div>
-        <button 
-          onClick={() => setActiveConvId(null)} 
-          className="hover:bg-white/20 p-1 rounded-full transition-colors"
-        >
+        <button onClick={() => setActiveConvId(null)} className="hover:bg-white/20 p-1 rounded-full transition-colors">
           <X size={20} />
         </button>
       </div>
@@ -80,12 +91,7 @@ export default function GlobalChatBox() {
       {/* Messages Area */}
       <div 
         ref={scrollRef} 
-        onScroll={(e) => {
-          // যদি স্ক্রল একদম উপরে থাকে এবং আরও মেসেজ থাকে তবে লোড করবে
-          if (e.currentTarget.scrollTop === 0 && hasMore && !isLoadingMore) {
-            loadMore();
-          }
-        }}
+        onScroll={handleScroll}
         className="h-80 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-950/50 flex flex-col"
       >
         {hasMore && (
@@ -93,7 +99,7 @@ export default function GlobalChatBox() {
             {isLoadingMore ? (
               <Loader2 className="w-4 h-4 animate-spin mx-auto text-blue-500" />
             ) : (
-              <span className="text-[10px] text-slate-400 italic">Scroll up to load history</span>
+              <span className="text-[10px] text-slate-400 italic">Load history</span>
             )}
           </div>
         )}
@@ -109,8 +115,6 @@ export default function GlobalChatBox() {
             </div>
           </div>
         ))}
-        
-        {/* এই ডিভটি সবসময় নিচে থাকবে এবং স্ক্রল করতে সাহায্য করবে */}
         <div ref={messagesEndRef} />
       </div>
 
