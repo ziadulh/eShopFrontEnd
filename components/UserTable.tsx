@@ -1,141 +1,164 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Edit, Trash2, Search, UserPlus, X, Shield, MessageSquare, Send, Loader2 } from "lucide-react";
+import { Search, X, MessageSquare, Send, Loader2, Users, Plus, Hash, CheckCircle2 } from "lucide-react";
 import { useChat } from "@/hooks/useChat";
 import Link from "next/link";
+import Cookies from "js-cookie";
 
 export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
-  const [search, setSearch] = useState("");
-  const [permissions, setPermissions] = useState<string[]>([]);
+  // ১. স্টেটস
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [myConversations, setMyConversations] = useState<any[]>([]);
   const [inputMessage, setInputMessage] = useState("");
+  
+  // গ্রুপ তৈরির স্টেটস
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [groupName, setGroupName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
-  // আপডেট করা হুক কল (loadMore, hasMore, isLoadingMore সহ)
-  const { messages, sendMessage, loadMore, hasMore, isLoadingMore } = useChat(activeChatUser?.id, currentUser?.id);
+  // ২. চ্যাট হুক কল
+  const { messages, sendMessage, loadMore, hasMore, isLoadingMore } = useChat(activeConvId || undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("user");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setPermissions(parsed.permissions || []);
-      setCurrentUser(parsed);
-    }
+    if (saved) setCurrentUser(JSON.parse(saved));
   }, []);
 
-  // অটো-স্ক্রল লজিক: শুধুমাত্র প্রথমবার চ্যাট খুললে বা নতুন মেসেজ আসলে নিচে যাবে
+  // চ্যাট লিস্ট (Conversations) ফেচ করা
+  const fetchMyConversations = async () => {
+    const token = Cookies.get("token");
+    try {
+      const res = await fetch("http://localhost:8080/chat/my-conversations", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) setMyConversations(data);
+    } catch (err) { console.error(err); }
+  };
+
+  useEffect(() => {
+    if (currentUser) fetchMyConversations();
+  }, [currentUser, activeConvId]);
+
+  // অটো-স্ক্রল লজিক
   useEffect(() => {
     if (scrollRef.current && messages.length <= 10) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages.length, activeChatUser]);
+  }, [messages.length, activeConvId]);
 
-  // স্ক্রল ইভেন্ট হ্যান্ডলার (উপরে স্ক্রল করলে পুরনো মেসেজ লোড হবে)
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight } = e.currentTarget;
-    
-    // যদি একদম উপরে (scrollTop === 0) থাকে এবং আরও মেসেজ থাকে
-    if (scrollTop === 0 && hasMore && !isLoadingMore) {
-      const currentScrollHeight = scrollHeight;
-      
-      loadMore(); // হুক থেকে পরবর্তী ১০টি মেসেজ লোড করবে
-
-      // নতুন মেসেজ লোড হওয়ার পর স্ক্রল পজিশন ঠিক রাখা (Jump prevent করা)
-      setTimeout(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight - currentScrollHeight;
-        }
-      }, 100);
-    }
+  // ৩. পার্সোনাল চ্যাট শুরু (DM)
+  const handleStartChat = async (targetUser: any) => {
+    const token = Cookies.get("token");
+    try {
+      const res = await fetch(`http://localhost:8080/chat/conversation?target_id=${targetUser.id}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const conv = await res.json();
+      if (conv.id) {
+        setActiveConvId(conv.id);
+        setActiveChatUser(targetUser);
+      }
+    } catch (err) { console.error("Chat start error", err); }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  // ৪. গ্রুপ তৈরি
+  const handleCreateGroup = async () => {
+    if (!groupName.trim() || selectedUsers.length === 0) return alert("Fill all fields");
+    setIsCreating(true);
+    const token = Cookies.get("token");
+    try {
+      const res = await fetch("http://localhost:8080/chat/groups", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: groupName, members: selectedUsers })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowGroupModal(false);
+        setGroupName("");
+        setSelectedUsers([]);
+        setActiveConvId(data.id);
+        setActiveChatUser({ name: data.name });
+        fetchMyConversations();
+      }
+    } catch (err) { console.error(err); }
+    finally { setIsCreating(false); }
+  };
+
+  const onSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !activeChatUser || !currentUser) return;
-    sendMessage(inputMessage, currentUser.id, activeChatUser.id);
+    if (!inputMessage.trim() || !currentUser || !activeConvId) return;
+    sendMessage(inputMessage, currentUser.id);
     setInputMessage("");
   };
 
-  const hasPerm = (p: string) => permissions.includes(p);
-
-  const filteredUsers = initialUsers.filter(u =>
-    u.name?.toLowerCase().includes(search.toLowerCase()) ||
-    u.email?.toLowerCase().includes(search.toLowerCase())
-  );
-
   return (
-    <div className="relative">
-      {/* Search & Add Bar */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6 items-center justify-between">
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input
-            type="text"
-            placeholder="Search by name or email..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-700 dark:text-slate-200"
-            onChange={(e) => setSearch(e.target.value)}
-          />
+    <div className="relative p-6 bg-slate-50 dark:bg-slate-950 min-h-screen">
+      
+      {/* --- সাইডবার/Horizontal Chat List --- */}
+      <div className="mb-10">
+        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Active Channels</h3>
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+          <button 
+            onClick={() => setShowGroupModal(true)}
+            className="flex-shrink-0 w-14 h-14 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all group"
+          >
+            <Plus size={24} className="group-hover:rotate-90 transition-transform" />
+          </button>
+          
+          {myConversations.map((conv) => (
+            <button 
+              key={conv.id}
+              onClick={() => {
+                setActiveConvId(conv.id);
+                setActiveChatUser({ name: conv.name || "Private Chat" });
+              }}
+              className={`flex-shrink-0 px-5 h-14 rounded-2xl border flex items-center gap-3 transition-all ${
+                activeConvId === conv.id 
+                ? "bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-500/40" 
+                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200"
+              }`}
+            >
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${activeConvId === conv.id ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800 text-blue-600"}`}>
+                {conv.type === "group" ? <Hash size={14} /> : <MessageSquare size={14} />}
+              </div>
+              <span className="text-sm font-bold whitespace-nowrap">{conv.name || "User Chat"}</span>
+            </button>
+          ))}
         </div>
-        {hasPerm("users.store") && (
-          <Link href="/admin/users/create" className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg">
-            <UserPlus size={18} /> Add New User
-          </Link>
-        )}
       </div>
 
-      {/* Table Container */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50/50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800">
-              <th className="px-6 py-4 text-[11px] font-bold uppercase text-slate-400 tracking-wider">Identity</th>
-              <th className="px-6 py-4 text-[11px] font-bold uppercase text-slate-400 tracking-wider">Access Role</th>
-              <th className="px-6 py-4 text-[11px] font-bold uppercase text-slate-400 tracking-wider text-right">Actions</th>
+      {/* --- ইউজার টেবিল --- */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] overflow-hidden shadow-sm">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50/50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800">
+            <tr>
+              <th className="px-8 py-5 text-[11px] font-bold uppercase text-slate-400 tracking-wider">Directory</th>
+              <th className="px-8 py-5 text-right text-[11px] font-bold uppercase text-slate-400 tracking-wider">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {filteredUsers.map((user) => (
-              <tr key={user.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 font-bold text-xs uppercase">
-                      {user.name?.charAt(0)}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{user.name}</span>
-                      <span className="text-xs text-slate-500">{user.email}</span>
-                    </div>
+            {initialUsers.map((user) => (
+              <tr key={user.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-800/10 transition-colors">
+                <td className="px-8 py-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-xs text-slate-500 uppercase">{user.name.charAt(0)}</div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{user.name}</div>
+                    <div className="text-[11px] text-slate-400">{user.email}</div>
                   </div>
                 </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <Shield size={14} />
-                    <span className="text-xs font-bold uppercase tracking-wider">{user.role || 'User'}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                    {currentUser?.id !== user.id && (
-                      <button 
-                        onClick={() => setActiveChatUser(user)}
-                        className="p-2 text-slate-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-all"
-                      >
-                        <MessageSquare size={16} />
-                      </button>
-                    )}
-                    {hasPerm("users.update") && (
-                      <Link href={`/admin/users/edit/${user.id}`} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all">
-                        <Edit size={16} />
-                      </Link>
-                    )}
-                    {hasPerm("users.destroy") && (
-                      <button className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all">
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
+                <td className="px-8 py-4 text-right">
+                  {currentUser?.id !== user.id && (
+                    <button onClick={() => handleStartChat(user)} className="p-3 text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-2xl transition-all">
+                      <MessageSquare size={20} />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -143,43 +166,33 @@ export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
         </table>
       </div>
 
-      {/* Floating Chat Box with Pagination Support */}
-      {activeChatUser && (
-        <div className="fixed bottom-6 right-6 w-80 md:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in slide-in-from-bottom-5">
-          <div className="bg-blue-600 p-4 flex justify-between items-center text-white">
+      {/* --- ফ্লোটিং চ্যাট বক্স --- */}
+      {activeConvId && (
+        <div className="fixed bottom-6 right-6 w-80 md:w-[400px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] shadow-2xl z-[100] overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-300">
+          <div className="bg-blue-600 p-5 flex justify-between items-center text-white">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-xs uppercase">{activeChatUser.name.charAt(0)}</div>
-              <span className="font-bold text-sm">{activeChatUser.name}</span>
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-xs uppercase">{activeChatUser?.name?.charAt(0)}</div>
+              <span className="font-bold text-sm tracking-tight">{activeChatUser?.name}</span>
             </div>
-            <button onClick={() => setActiveChatUser(null)} className="hover:bg-white/20 p-1 rounded-full"><X size={18} /></button>
+            <button onClick={() => { setActiveConvId(null); setActiveChatUser(null); }} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20} /></button>
           </div>
-
+          
           <div 
             ref={scrollRef} 
-            onScroll={handleScroll} // স্ক্রল লিসেনার যোগ করা হয়েছে
-            className="h-80 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-950/50 scroll-smooth"
+            onScroll={(e) => e.currentTarget.scrollTop === 0 && hasMore && loadMore()}
+            className="h-96 overflow-y-auto p-5 space-y-4 bg-slate-50 dark:bg-slate-950/40 scroll-smooth"
           >
-            {/* আরও মেসেজ লোড হওয়ার ইন্ডিকেটর */}
             {hasMore && (
-              <div className="flex justify-center py-2">
-                {isLoadingMore ? (
-                  <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
-                ) : (
-                  <span className="text-[10px] text-slate-400 italic">Scroll up to see history</span>
-                )}
+              <div className="text-center py-2">
+                {isLoadingMore ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-blue-500" /> : <span className="text-[10px] text-slate-400 italic">Load history</span>}
               </div>
             )}
-
-            {messages.length === 0 && !isLoadingMore && (
-              <div className="text-center text-[10px] text-slate-400 mt-20">No messages yet.</div>
-            )}
-            
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.sender_id === currentUser?.id ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] p-3 rounded-2xl text-[13px] shadow-sm ${
+                <div className={`max-w-[85%] p-3.5 rounded-2xl text-[13px] shadow-sm leading-relaxed ${
                   msg.sender_id === currentUser?.id 
                   ? "bg-blue-600 text-white rounded-tr-none" 
-                  : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-tl-none"
+                  : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-none border border-slate-100 dark:border-slate-700"
                 }`}>
                   {msg.content}
                 </div>
@@ -187,18 +200,63 @@ export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
             ))}
           </div>
 
-          <form onSubmit={handleSendMessage} className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-2">
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Type a message..."
-              className="flex-1 bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm outline-none text-slate-700 dark:text-slate-200"
+          <form onSubmit={onSendMessage} className="p-4 flex gap-2 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <input 
+              value={inputMessage} 
+              onChange={(e) => setInputMessage(e.target.value)} 
+              placeholder="Message..." 
+              className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-2xl px-5 py-3 text-sm outline-none text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 transition-all" 
             />
-            <button type="submit" className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-colors">
-              <Send size={18} />
+            <button type="submit" className="bg-blue-600 text-white p-3 rounded-2xl hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-blue-500/30">
+              <Send size={20} />
             </button>
           </form>
+        </div>
+      )}
+
+      {/* --- গ্রুপ তৈরি করার মোডাল --- */}
+      {showGroupModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-[440px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95">
+            <div className="p-8 pb-0 flex justify-between items-center">
+              <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">New Group</h2>
+              <button onClick={() => setShowGroupModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"><X size={24} /></button>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              <input 
+                type="text" 
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                placeholder="Group Name" 
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20" 
+              />
+
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Add Members</p>
+                <div className="max-h-52 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                  {initialUsers.map(u => u.id !== currentUser?.id && (
+                    <div 
+                      key={u.id}
+                      onClick={() => setSelectedUsers(prev => prev.includes(u.id) ? prev.filter(id => id !== u.id) : [...prev, u.id])}
+                      className={`flex items-center justify-between p-3.5 rounded-2xl cursor-pointer border-2 transition-all ${selectedUsers.includes(u.id) ? "border-blue-600 bg-blue-50 dark:bg-blue-900/20" : "border-transparent bg-slate-50 dark:bg-slate-800"}`}
+                    >
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{u.name}</span>
+                      {selectedUsers.includes(u.id) && <CheckCircle2 size={20} className="text-blue-600" />}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button 
+                onClick={handleCreateGroup}
+                disabled={isCreating}
+                className="w-full py-5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-2xl font-black shadow-xl shadow-blue-500/30 transition-all uppercase text-xs tracking-widest"
+              >
+                {isCreating ? <Loader2 className="animate-spin mx-auto" /> : "Create Channel"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
