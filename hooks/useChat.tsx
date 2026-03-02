@@ -1,45 +1,92 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Cookies from "js-cookie";
 
-export const useChat = () => {
+export const useChat = (activeReceiverId?: string, currentSenderId?: string) => {
   const [messages, setMessages] = useState<any[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
 
+  // হিস্ট্রি ফেচ করার মেইন ফাংশন
+  const fetchHistory = useCallback(async (currentOffset: number) => {
+    if (!activeReceiverId || !currentSenderId) return;
+    
+    const token = Cookies.get("token");
+    try {
+      const res = await fetch(
+        `http://localhost:8080/chat/history?sender_id=${currentSenderId}&receiver_id=${activeReceiverId}&offset=${currentOffset}`,
+        { headers: { "Authorization": `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      
+      if (Array.isArray(data)) {
+        if (data.length < 10) setHasMore(false);
+        
+        setMessages((prev) => {
+          // যদি প্রথমবার লোড হয় (offset 0), তবে শুধু নতুন ডাটা
+          if (currentOffset === 0) return data;
+          // পুরনো মেসেজগুলো শুরুতে যোগ করা
+          return [...data, ...prev];
+        });
+      }
+    } catch (err) {
+      console.error("❌ History error:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [activeReceiverId, currentSenderId]);
+
+  // ইউজার সিলেক্ট করলে ইনিশিয়াল লোড
+  useEffect(() => {
+    setMessages([]);
+    setHasMore(true);
+    if (activeReceiverId) fetchHistory(0);
+  }, [activeReceiverId, fetchHistory]);
+
+  // WebSocket কানেকশন
   useEffect(() => {
     const token = Cookies.get("token");
     if (!token) return;
 
-    // WebSocket কানেকশন তৈরি (আপনার Go ব্যাকএন্ড URL)
-    socketRef.current = new WebSocket(process.env.NEXT_PUBLIC_WEB_SOCKET_URL+`?token=${token}`);
+    const ws = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
+    socketRef.current = ws;
 
-    socketRef.current.onmessage = (event) => {
+    ws.onmessage = (event) => {
       try {
         const newMessage = JSON.parse(event.data);
-        setMessages((prev) => [...prev, newMessage]);
+        const isRelevant = 
+          (newMessage.sender_id === activeReceiverId && newMessage.receiver_id === currentSenderId) ||
+          (newMessage.sender_id === currentSenderId && newMessage.receiver_id === activeReceiverId);
+
+        if (isRelevant) {
+          setMessages((prev) => [...prev, newMessage]);
+        }
       } catch (err) {
-        console.error("Error parsing socket message:", err);
+        console.error("WS error:", err);
       }
     };
 
-    socketRef.current.onclose = () => console.log("WebSocket Disconnected");
-
-    return () => {
-      socketRef.current?.close();
-    };
-  }, []);
+    return () => ws.close();
+  }, [activeReceiverId, currentSenderId]);
 
   const sendMessage = (content: string, senderId: string, receiverId: string) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
-      const data = JSON.stringify({
+      socketRef.current.send(JSON.stringify({
         sender_id: senderId,
         receiver_id: receiverId,
         content: content,
-      });
-      socketRef.current.send(data);
+      }));
     }
   };
 
-  return { messages, setMessages, sendMessage };
+  const loadMore = () => {
+    if (!isLoadingMore && hasMore) {
+      setIsLoadingMore(true);
+      fetchHistory(messages.length);
+    }
+  };
+
+  return { messages, sendMessage, loadMore, hasMore, isLoadingMore };
 };
