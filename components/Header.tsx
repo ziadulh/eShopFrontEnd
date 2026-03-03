@@ -1,10 +1,9 @@
 "use client";
 
 import Cookies from "js-cookie";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Menu, User, CheckCircle2, AlertCircle } from "lucide-react";
 
-// সাব-কম্পোনেন্টগুলো ইমপোর্ট করা হচ্ছে
 import ChatPanel from "./header/ChatPanel";
 import NotificationPanel from "./header/NotificationPanel";
 import UserDropdown from "./header/UserDropdown";
@@ -24,18 +23,14 @@ const notifications = [
 ];
 
 export default function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
-  // UI States
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
-
-  // Group Creation States
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [groupName, setGroupName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  // Data States
   const [userData, setUserData] = useState<UserData>({ id: "", name: "User", role: "Staff", email: "" });
   const [myConversations, setMyConversations] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -44,53 +39,95 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
   const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.100.184:8080";
   const webSocketURL = process.env.NEXT_PUBLIC_WEB_SOCKET_URL || "ws://192.168.100.184:8080/ws";
 
-  // --- WebSocket & Data Logic ---
-  useEffect(() => {
-    const token = Cookies.get("token");
-    if (!token || !userData.id) return;
-    let ws: WebSocket | null = null;
-    let timeoutId: NodeJS.Timeout;
-
-    const connect = () => {
-      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-      ws = new WebSocket(`${webSocketURL}?token=${token}`);
-      ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        if (msg.sender_id !== userData.id) {
-          setUnreadCounts((prev) => ({ ...prev, [msg.conversation_id]: (prev[msg.conversation_id] || 0) + 1 }));
-          fetchData();
-        }
-      };
-      ws.onclose = () => { timeoutId = setTimeout(connect, 3000); };
-    };
-    connect();
-    return () => { clearTimeout(timeoutId); if (ws) ws.close(); };
-  }, [userData.id]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const token = Cookies.get("token");
     if (!token) return;
     try {
-      const convRes = await fetch(baseURL + "/chat/my-conversations", { headers: { Authorization: `Bearer ${token}` } });
+      const convRes = await fetch(baseURL + "/chat/my-conversations", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const convData = await convRes.json();
-      if (Array.isArray(convData)) setMyConversations(convData);
-
+      if (Array.isArray(convData)) {
+        setMyConversations(convData);
+        const counts: Record<string, number> = {};
+        convData.forEach((c: any) => { counts[c.id] = c.unread_count || 0; });
+        setUnreadCounts(counts);
+      }
       const userRes = await fetch(baseURL + "/users", { headers: { Authorization: `Bearer ${token}` } });
       const userDataRes = await userRes.json();
       if (Array.isArray(userDataRes)) setAllUsers(userDataRes);
     } catch (err) { console.error(err); }
-  };
+  }, [baseURL]);
 
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
     if (savedUser) setUserData(JSON.parse(savedUser));
     fetchData();
-  }, []);
+  }, [fetchData]);
 
+  // ✅ WebSocket Logic with Stale Closure Protection
+  useEffect(() => {
+    const token = Cookies.get("token");
+    if (!token || !userData.id) return;
+
+    let ws: WebSocket;
+    let reconnectTimeout: NodeJS.Timeout;
+
+    const connect = () => {
+      ws = new WebSocket(`${webSocketURL}?token=${token}`);
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.sender_id !== userData.id) {
+          
+          // রিয়েল-টাইম ব্যাজ আপডেট (Functional Update pattern)
+          setUnreadCounts((prev) => {
+            const newCounts = { ...prev };
+            newCounts[msg.conversation_id] = (newCounts[msg.conversation_id] || 0) + 1;
+            return newCounts;
+          });
+
+          // লিস্টের পজিশন আপডেট
+          setMyConversations((prev) => {
+            const filtered = prev.filter(c => c.id !== msg.conversation_id);
+            const target = prev.find(c => c.id === msg.conversation_id);
+            if (target) {
+              return [{ ...target, updated_at: new Date().toISOString() }, ...filtered];
+            }
+            fetchData();
+            return prev;
+          });
+        }
+      };
+
+      ws.onclose = () => { reconnectTimeout = setTimeout(connect, 3000); };
+    };
+
+    connect();
+    return () => {
+      if (ws) { ws.onclose = null; ws.close(); }
+      clearTimeout(reconnectTimeout);
+    };
+  }, [userData.id, webSocketURL, fetchData]);
+
+  // ✅ ব্যাজ জিরো করার জন্য এই ফাংশনটি এখন গ্যারান্টি দেবে
   const openGlobalChat = (convId: string, title: string) => {
     window.dispatchEvent(new CustomEvent("openChat", { detail: { convId, title } }));
-    setUnreadCounts((prev) => { const n = { ...prev }; delete n[convId]; return n; });
+    
+    // মডাল ক্লোজ করার সময় স্টেট যেন একদম ফ্রেশ অবজেক্ট হিসেবে আপডেট হয়
+    setUnreadCounts((prev) => {
+      const resetCounts = { ...prev };
+      resetCounts[convId] = 0;
+      return resetCounts; 
+    });
+    
     setIsChatPanelOpen(false);
+  };
+
+  const handleLogout = () => {
+    Cookies.remove("token", { path: "/" });
+    localStorage.removeItem("user");
+    window.location.href = "/login";
   };
 
   const startNewPrivateChat = async (targetId: string, name: string) => {
@@ -113,15 +150,10 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
       const data = await res.json();
       if (res.ok) {
         setShowGroupModal(false); setGroupName(""); setSelectedUsers([]);
-        openGlobalChat(data.id, data.name); fetchData();
+        openGlobalChat(data.id, data.name);
+        fetchData();
       }
     } catch (err) { console.error(err); } finally { setIsCreating(false); }
-  };
-
-  const handleLogout = () => {
-    Cookies.remove("token", { path: "/" });
-    localStorage.removeItem("user");
-    window.location.href = "/login";
   };
 
   return (
@@ -135,8 +167,7 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
         </div>
 
         <div className="flex items-center gap-2 lg:gap-4">
-          {/* চ্যাট প্যানেল কম্পোনেন্ট */}
-          <ChatPanel 
+          <ChatPanel
             isChatPanelOpen={isChatPanelOpen}
             setIsChatPanelOpen={setIsChatPanelOpen}
             setIsNotifyOpen={setIsNotifyOpen}
@@ -144,49 +175,20 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
             totalUnread={Object.values(unreadCounts).reduce((a, b) => a + b, 0)}
             myConversations={myConversations}
             unreadCounts={unreadCounts}
+            setUnreadCounts={setUnreadCounts}
             openGlobalChat={openGlobalChat}
             allUsers={allUsers}
             currentUserId={userData.id}
             startNewPrivateChat={startNewPrivateChat}
             setShowGroupModal={setShowGroupModal}
+            baseURL={baseURL}
           />
-
-          {/* নোটিফিকেশন প্যানেল কম্পোনেন্ট */}
-          <NotificationPanel 
-            isNotifyOpen={isNotifyOpen}
-            setIsNotifyOpen={setIsNotifyOpen}
-            setIsChatPanelOpen={setIsChatPanelOpen}
-            setIsDropdownOpen={setIsDropdownOpen}
-            notifications={notifications}
-          />
-
+          <NotificationPanel isNotifyOpen={isNotifyOpen} setIsNotifyOpen={setIsNotifyOpen} setIsChatPanelOpen={setIsChatPanelOpen} setIsDropdownOpen={setIsDropdownOpen} notifications={notifications} />
           <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
-
-          {/* ইউজার ড্রপডাউন কম্পোনেন্ট */}
-          <UserDropdown 
-            isDropdownOpen={isDropdownOpen}
-            setIsDropdownOpen={setIsDropdownOpen}
-            setIsNotifyOpen={setIsNotifyOpen}
-            setIsChatPanelOpen={setIsChatPanelOpen}
-            userData={userData}
-            handleLogout={handleLogout}
-          />
+          <UserDropdown isDropdownOpen={isDropdownOpen} setIsDropdownOpen={setIsDropdownOpen} setIsNotifyOpen={setIsNotifyOpen} setIsChatPanelOpen={setIsChatPanelOpen} userData={userData} handleLogout={handleLogout} />
         </div>
       </header>
-
-      {/* গ্রুপ তৈরির গ্লোবাল মোডাল */}
-      <CreateGroupModal 
-        showGroupModal={showGroupModal}
-        setShowGroupModal={setShowGroupModal}
-        groupName={groupName}
-        setGroupName={setGroupName}
-        selectedUsers={selectedUsers}
-        setSelectedUsers={setSelectedUsers}
-        allUsers={allUsers}
-        currentUserId={userData.id}
-        handleCreateGroup={handleCreateGroup}
-        isCreating={isCreating}
-      />
+      <CreateGroupModal showGroupModal={showGroupModal} setShowGroupModal={setShowGroupModal} groupName={groupName} setGroupName={setGroupName} selectedUsers={selectedUsers} setSelectedUsers={setSelectedUsers} allUsers={allUsers} currentUserId={userData.id} handleCreateGroup={handleCreateGroup} isCreating={isCreating} />
     </>
   );
 }
