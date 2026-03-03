@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
-import PermissionGuard from "@/components/PermissionGuard"; // Import the Guard
+import PermissionGuard from "@/components/PermissionGuard";
 
 export default function AdminLayout({
   children,
@@ -14,17 +14,18 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex overflow-x-hidden transition-colors">
-      {/* 1. The Permission Guard (Wrapped in Suspense) */}
       <Suspense fallback={null}>
         <PermissionGuard />
       </Suspense>
 
       <Sidebar isOpen={isOpen} />
 
+      {/* h-screen এবং overflow-y-auto যোগ করা হয়েছে যাতে বডি স্ক্রল করলেও হেডার আটকে থাকে */}
       <div
-        className={`flex-1 flex flex-col min-h-screen w-full transition-all duration-300 ease-in-out 
+        className={`flex-1 flex flex-col h-screen w-full transition-all duration-300 ease-in-out overflow-y-auto
         ${isOpen ? "lg:pl-64" : "lg:pl-20"}`}
       >
+        {/* হেডার কম্পোনেন্ট */}
         <Header toggleSidebar={() => setIsOpen(!isOpen)} />
 
         <main className="p-4 lg:p-8 flex-1 w-full max-w-full">
