@@ -2,10 +2,19 @@
 
 import { UserCircle, User, LogOut } from "lucide-react";
 
-export default function UserDropdown({ 
-  isDropdownOpen, setIsDropdownOpen, setIsNotifyOpen, setIsChatPanelOpen, 
-  userData, handleLogout 
-}) {
+interface UserDropdownProps {
+  isDropdownOpen: boolean;
+  setIsDropdownOpen: (val: boolean) => void;
+  setIsNotifyOpen: (val: boolean) => void;
+  setIsChatPanelOpen: (val: boolean) => void;
+  userData: any;
+  handleLogout: () => void;
+}
+
+export default function UserDropdown({
+  isDropdownOpen, setIsDropdownOpen, setIsNotifyOpen, setIsChatPanelOpen,
+  userData, handleLogout
+}: UserDropdownProps) {
   return (
     <div className="relative">
       <div

@@ -2,11 +2,26 @@
 
 import { MessageSquare, Hash, User, Users, Plus } from "lucide-react";
 
-export default function ChatPanel({ 
+interface ChatPanelProps {
+  isChatPanelOpen: boolean;
+  setIsChatPanelOpen: (val: boolean) => void;
+  setIsNotifyOpen: (val: boolean) => void;
+  setIsDropdownOpen: (val: boolean) => void;
+  totalUnread: number;
+  myConversations: any[];
+  unreadCounts: Record<string, number>;
+  openGlobalChat: (id: string, title: string) => void;
+  allUsers: any[];
+  currentUserId: string;
+  startNewPrivateChat: (id: string, name: string) => Promise<void>;
+  setShowGroupModal: (val: boolean) => void;
+}
+
+export default function ChatPanel({
   isChatPanelOpen, setIsChatPanelOpen, setIsNotifyOpen, setIsDropdownOpen,
   totalUnread, myConversations, unreadCounts, openGlobalChat,
-  allUsers, currentUserId, startNewPrivateChat, setShowGroupModal 
-}) {
+  allUsers, currentUserId, startNewPrivateChat, setShowGroupModal
+}: ChatPanelProps) {
   return (
     <div className="relative">
       <button
@@ -28,7 +43,6 @@ export default function ChatPanel({
       {isChatPanelOpen && (
         <div className="fixed top-16 right-4 left-4 lg:absolute lg:top-auto lg:right-0 lg:left-auto lg:mt-2 lg:w-[480px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col z-50 animate-in fade-in slide-in-from-top-2 overflow-hidden">
           <div className="flex h-[400px]">
-            {/* Left: Active Chats */}
             <div className="w-1/2 border-r border-slate-100 dark:border-slate-800 flex flex-col">
               <div className="p-3 border-b bg-slate-50/50 dark:bg-slate-950/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 <MessageSquare size={12} /> Active Chats
@@ -51,7 +65,6 @@ export default function ChatPanel({
               </div>
             </div>
 
-            {/* Right: User Directory */}
             <div className="w-1/2 flex flex-col bg-slate-50/30 dark:bg-slate-950/20">
               <div className="p-3 border-b bg-slate-50/50 dark:bg-slate-950/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-between">
                 <div className="flex items-center gap-2"><Users size={12} /> Start New</div>

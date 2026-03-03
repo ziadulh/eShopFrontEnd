@@ -2,11 +2,24 @@
 
 import { Plus, X, CheckCircle2, Loader2 } from "lucide-react";
 
-export default function CreateGroupModal({ 
-  showGroupModal, setShowGroupModal, groupName, setGroupName, 
-  selectedUsers, setSelectedUsers, allUsers, currentUserId, 
-  handleCreateGroup, isCreating 
-}) {
+interface CreateGroupModalProps {
+  showGroupModal: boolean;
+  setShowGroupModal: (val: boolean) => void;
+  groupName: string;
+  setGroupName: (val: string) => void;
+  selectedUsers: string[];
+  setSelectedUsers: React.Dispatch<React.SetStateAction<string[]>>;
+  allUsers: any[];
+  currentUserId: string;
+  handleCreateGroup: () => Promise<void>;
+  isCreating: boolean;
+}
+
+export default function CreateGroupModal({
+  showGroupModal, setShowGroupModal, groupName, setGroupName,
+  selectedUsers, setSelectedUsers, allUsers, currentUserId,
+  handleCreateGroup, isCreating
+}: CreateGroupModalProps) {
   if (!showGroupModal) return null;
 
   return (

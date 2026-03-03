@@ -2,7 +2,17 @@
 
 import { Bell } from "lucide-react";
 
-export default function NotificationPanel({ isNotifyOpen, setIsNotifyOpen, setIsChatPanelOpen, setIsDropdownOpen, notifications }) {
+interface NotificationPanelProps {
+  isNotifyOpen: boolean;
+  setIsNotifyOpen: (val: boolean) => void;
+  setIsChatPanelOpen: (val: boolean) => void;
+  setIsDropdownOpen: (val: boolean) => void;
+  notifications: any[];
+}
+
+export default function NotificationPanel({
+  isNotifyOpen, setIsNotifyOpen, setIsChatPanelOpen, setIsDropdownOpen, notifications
+}: NotificationPanelProps) {
   return (
     <div className="relative">
       <button
