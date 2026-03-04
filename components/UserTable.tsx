@@ -1,101 +1,46 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Edit,
-  Trash2,
-  Search,
-  UserPlus,
-  MessageSquare,
-  Plus,
-  CheckCircle2,
-  Loader2,
-  X,
-  Shield,
-} from "lucide-react";
-import Cookies from "js-cookie";
+import { Edit, Trash2, Search, Shield, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import apiClient from "@/lib/axios";
+import { toast } from "sonner";
 
 export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
+  const router = useRouter();
+  const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
-
-  // গ্রুপ তৈরির স্টেটস
-  const [showGroupModal, setShowGroupModal] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [groupName, setGroupName] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("user");
     if (saved) {
       const parsed = JSON.parse(saved);
-      setCurrentUser(parsed);
       setPermissions(parsed.permissions || []);
     }
-  }, []);
+    setUsers(initialUsers); // Sync with server data
+  }, [initialUsers]);
 
   const hasPerm = (p: string) => permissions.includes(p);
-  const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.100.184:8080";
 
-  // ১. ডাইরেক্ট চ্যাট শুরু করা
-  const handleStartChat = async (targetUser: any) => {
-    const token = Cookies.get("token");
-    try {
-      const res = await fetch(
-        baseURL+`/chat/conversation?target_id=${targetUser.id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      const conv = await res.json();
-      if (conv.id) {
-        // গ্লোবাল চ্যাট বক্স ওপেন করার ইভেন্ট
-        window.dispatchEvent(
-          new CustomEvent("openChat", {
-            detail: { convId: conv.id, title: targetUser.name },
-          }),
-        );
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // 🗑️ ডিলিট ফাংশন
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
 
-  // ২. গ্রুপ তৈরি করা
-  const handleCreateGroup = async () => {
-    if (!groupName.trim() || selectedUsers.length === 0)
-      return alert("Please provide details");
-    setIsCreating(true);
-    const token = Cookies.get("token");
+    setIsDeleting(id);
     try {
-      const res = await fetch(baseURL+"/chat/groups", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: groupName, members: selectedUsers }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setShowGroupModal(false);
-        setGroupName("");
-        setSelectedUsers([]);
-        window.dispatchEvent(
-          new CustomEvent("openChat", {
-            detail: { convId: data.id, title: data.name },
-          }),
-        );
-      }
-    } catch (err) {
-      console.error(err);
+      await apiClient.delete(`/users/${id}`);
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+      toast.success("Deleted!", { description: `${name} has been removed.` });
+    } catch (err: any) {
+      toast.error("Delete Failed", { description: "Could not remove user." });
     } finally {
-      setIsCreating(false);
+      setIsDeleting(null);
     }
   };
 
-  const filteredUsers = initialUsers.filter(
+  const filteredUsers = users.filter(
     (u) =>
       u.name?.toLowerCase().includes(search.toLowerCase()) ||
       u.email?.toLowerCase().includes(search.toLowerCase()),
@@ -103,7 +48,6 @@ export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
 
   return (
     <div className="relative">
-      {/* Search & Actions */}
       <div className="flex flex-col md:flex-row gap-4 mb-6 items-center justify-between">
         <div className="relative w-full md:w-96">
           <Search
@@ -113,21 +57,12 @@ export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
           <input
             type="text"
             placeholder="Search users..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none"
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500/20"
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowGroupModal(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md"
-          >
-            <Plus size={18} /> Create Group
-          </button>
-        </div>
       </div>
 
-      {/* User Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
         <table className="w-full text-left">
           <thead className="bg-slate-50/50 dark:bg-slate-950/50 border-b dark:border-slate-800">
@@ -151,7 +86,7 @@ export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
               >
                 <td className="px-6 py-4 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-xs uppercase text-slate-500">
-                    {user.name.charAt(0)}
+                    {user.name?.charAt(0)}
                   </div>
                   <div>
                     <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
@@ -170,22 +105,27 @@ export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
-                    {currentUser?.id !== user.id && (
-                      <button
-                        onClick={() => handleStartChat(user)}
-                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all"
-                      >
-                        <MessageSquare size={18} />
-                      </button>
-                    )}
                     {hasPerm("users.update") && (
-                      <button className="p-2 text-slate-400 hover:text-blue-500 rounded-lg">
+                      <button
+                        onClick={() =>
+                          router.push(`/admin/users/edit/${user.id}`)
+                        }
+                        className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
+                      >
                         <Edit size={18} />
                       </button>
                     )}
                     {hasPerm("users.destroy") && (
-                      <button className="p-2 text-slate-400 hover:text-red-500 rounded-lg">
-                        <Trash2 size={18} />
+                      <button
+                        disabled={isDeleting === user.id}
+                        onClick={() => handleDelete(user.id, user.name)}
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all disabled:opacity-50"
+                      >
+                        {isDeleting === user.id ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={18} />
+                        )}
                       </button>
                     )}
                   </div>
@@ -195,75 +135,6 @@ export default function UserTable({ initialUsers }: { initialUsers: any[] }) {
           </tbody>
         </table>
       </div>
-
-      {/* --- Create Group Modal --- */}
-      {showGroupModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-[420px] shadow-2xl border dark:border-slate-800 animate-in zoom-in-95">
-            <div className="p-6 pb-0 flex justify-between items-center">
-              <h2 className="text-xl font-bold dark:text-white">
-                Create New Group
-              </h2>
-              <button
-                onClick={() => setShowGroupModal(false)}
-                className="p-2 text-slate-400"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6 space-y-6">
-              <input
-                type="text"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                placeholder="Group Name"
-                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none text-sm dark:text-white"
-              />
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">
-                  Select Members
-                </p>
-                <div className="max-h-52 overflow-y-auto space-y-1.5 pr-2 custom-scrollbar">
-                  {initialUsers.map(
-                    (u) =>
-                      u.id !== currentUser?.id && (
-                        <div
-                          key={u.id}
-                          onClick={() =>
-                            setSelectedUsers((prev) =>
-                              prev.includes(u.id)
-                                ? prev.filter((id) => id !== u.id)
-                                : [...prev, u.id],
-                            )
-                          }
-                          className={`flex items-center justify-between p-3 rounded-2xl cursor-pointer border-2 transition-all ${selectedUsers.includes(u.id) ? "border-blue-600 bg-blue-50 dark:bg-blue-900/20" : "border-transparent bg-slate-50 dark:bg-slate-800"}`}
-                        >
-                          <span className="text-sm font-medium dark:text-slate-200">
-                            {u.name}
-                          </span>
-                          {selectedUsers.includes(u.id) && (
-                            <CheckCircle2 size={18} className="text-blue-600" />
-                          )}
-                        </div>
-                      ),
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={handleCreateGroup}
-                disabled={isCreating}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2"
-              >
-                {isCreating ? (
-                  <Loader2 className="animate-spin" size={20} />
-                ) : (
-                  "Create Group"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

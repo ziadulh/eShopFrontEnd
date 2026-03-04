@@ -31,7 +31,7 @@ export default function CreateUserPage() {
     name: "",
     email: "",
     password: "",
-    role: "",
+    roleId: "",
   });
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function CreateUserPage() {
         if (Array.isArray(rolesData)) {
           setRoles(rolesData);
           if (rolesData.length > 0) {
-            setFormData((prev) => ({ ...prev, role: rolesData[0].name }));
+            setFormData((prev) => ({ ...prev, roleId: rolesData[0].id }));
           }
         }
       } catch (err: any) {
@@ -61,7 +61,7 @@ export default function CreateUserPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.role) {
+    if (!formData.roleId) {
       toast.error("Required Field", {
         description: "Please select a user role.",
       });
@@ -72,15 +72,18 @@ export default function CreateUserPage() {
 
     try {
       await apiClient.post("/users", formData);
+
       toast.success("Success!", {
-        description: `${formData.name} has been created as a ${formData.role}.`,
+        description: `${formData.name} has been created successfully.`,
       });
 
       router.push("/admin/users");
       router.refresh();
     } catch (err: any) {
+      console.error("Backend Error:", err.response?.data);
       toast.error("Creation Failed", {
         description:
+          err.response?.data?.error ||
           err.response?.data?.message ||
           "An error occurred while saving the user.",
       });
@@ -125,6 +128,7 @@ export default function CreateUserPage() {
               <input
                 required
                 type="text"
+                value={formData.name}
                 placeholder="e.g. Ziadul Haque"
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-white text-sm transition-all"
                 onChange={(e) =>
@@ -147,6 +151,7 @@ export default function CreateUserPage() {
               <input
                 required
                 type="email"
+                value={formData.email}
                 placeholder="ziadul@example.com"
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-white text-sm transition-all"
                 onChange={(e) =>
@@ -169,6 +174,7 @@ export default function CreateUserPage() {
               <input
                 required
                 type="password"
+                value={formData.password}
                 placeholder="••••••••"
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-white text-sm transition-all"
                 onChange={(e) =>
@@ -190,17 +196,17 @@ export default function CreateUserPage() {
               />
               <select
                 disabled={isLoadingRoles}
-                value={formData.role}
+                value={formData.roleId}
                 className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-white text-sm transition-all appearance-none cursor-pointer disabled:opacity-50"
                 onChange={(e) =>
-                  setFormData({ ...formData, role: e.target.value })
+                  setFormData({ ...formData, roleId: e.target.value })
                 }
               >
                 {isLoadingRoles ? (
-                  <option>Loading roles...</option>
+                  <option value="">Loading roles...</option>
                 ) : (
                   roles.map((role) => (
-                    <option key={role.id} value={role.name}>
+                    <option key={role.id} value={role.id}>
                       {role.name}
                     </option>
                   ))
