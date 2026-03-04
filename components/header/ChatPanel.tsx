@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import { MessageSquare, Hash, User, Users, Plus } from "lucide-react";
 
 interface ChatPanelProps {
+  fetchData?: () => Promise<void>;
   isChatPanelOpen: boolean;
   setIsChatPanelOpen: (val: boolean) => void;
   setIsNotifyOpen: (val: boolean) => void;
@@ -35,21 +36,24 @@ export default function ChatPanel({
   startNewPrivateChat,
   setShowGroupModal,
   baseURL,
+  fetchData,
 }: ChatPanelProps) {
 
   const handleChatClick = async (convId: string, title: string) => {
     const token = Cookies.get("token");
-    // ১. ব্যাকএন্ডে মার্ক-রিড আপডেট
     try {
       await fetch(`${baseURL}/chat/mark-read/${convId}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (fetchData) {
+        await fetchData();
+      }
     } catch (err) {
       console.error("❌ Mark as read failed", err);
     }
     
-    // ২. হেডার থেকে পাঠানো মেইন মেথড কল করা (যা ইভেন্ট ফায়ার এবং ব্যাজ জিরো করে)
     openGlobalChat(convId, title);
   };
 

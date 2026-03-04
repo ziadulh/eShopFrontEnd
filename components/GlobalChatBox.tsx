@@ -83,7 +83,10 @@ export default function GlobalChatBox() {
           </div>
           <span className="font-bold text-sm truncate max-w-[150px]">{chatTitle}</span>
         </div>
-        <button onClick={() => setActiveConvId(null)} className="hover:bg-white/20 p-1 rounded-full transition-colors">
+        <button onClick={() => {
+          setActiveConvId(null);
+          window.dispatchEvent(new CustomEvent("closeChat", { detail: { convId: activeConvId } }));
+        }} className="hover:bg-white/20 p-1 rounded-full transition-colors">
           <X size={20} />
         </button>
       </div>

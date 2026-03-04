@@ -38,6 +38,8 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
 
   const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.100.184:8080";
   const webSocketURL = process.env.NEXT_PUBLIC_WEB_SOCKET_URL || "ws://192.168.100.184:8080/ws";
+  // Track which conversation is currently open in the chat box
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     const token = Cookies.get("token");
@@ -63,6 +65,14 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
     const savedUser = localStorage.getItem("user");
     if (savedUser) setUserData(JSON.parse(savedUser));
     fetchData();
+
+    // Listen for when the chat box closes to clear active conversation tracking
+    const handleCloseChat = (event: any) => {
+      setActiveConversationId(null);
+    };
+
+    window.addEventListener("closeChat", handleCloseChat);
+    return () => window.removeEventListener("closeChat", handleCloseChat);
   }, [fetchData]);
 
   // ✅ WebSocket Logic with Stale Closure Protection
@@ -78,9 +88,16 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
 
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
-        if (msg.sender_id !== userData.id) {
+        
+        // Normalize types: convert sender_id to string to match userData.id from localStorage
+        if (String(msg.sender_id) !== userData.id) {
           
-          // রিয়েল-টাইম ব্যাজ আপডেট (Functional Update pattern)
+          // Don't increment badge if this conversation is currently open in the chat box
+          if (msg.conversation_id === activeConversationId) {
+            return;
+          }
+          
+          // রিয়েল-টাইম ব্যাজ আপডেট (Functional Update pattern)
           setUnreadCounts((prev) => {
             const newCounts = { ...prev };
             newCounts[msg.conversation_id] = (newCounts[msg.conversation_id] || 0) + 1;
@@ -108,19 +125,12 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
       if (ws) { ws.onclose = null; ws.close(); }
       clearTimeout(reconnectTimeout);
     };
-  }, [userData.id, webSocketURL, fetchData]);
+  }, [userData.id, webSocketURL, fetchData, activeConversationId]);
 
-  // ✅ ব্যাজ জিরো করার জন্য এই ফাংশনটি এখন গ্যারান্টি দেবে
+  // ✅ Open chat and track active conversation
   const openGlobalChat = (convId: string, title: string) => {
+    setActiveConversationId(convId);
     window.dispatchEvent(new CustomEvent("openChat", { detail: { convId, title } }));
-    
-    // মডাল ক্লোজ করার সময় স্টেট যেন একদম ফ্রেশ অবজেক্ট হিসেবে আপডেট হয়
-    setUnreadCounts((prev) => {
-      const resetCounts = { ...prev };
-      resetCounts[convId] = 0;
-      return resetCounts; 
-    });
-    
     setIsChatPanelOpen(false);
   };
 
@@ -182,6 +192,7 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
             startNewPrivateChat={startNewPrivateChat}
             setShowGroupModal={setShowGroupModal}
             baseURL={baseURL}
+            fetchData={fetchData}
           />
           <NotificationPanel isNotifyOpen={isNotifyOpen} setIsNotifyOpen={setIsNotifyOpen} setIsChatPanelOpen={setIsChatPanelOpen} setIsDropdownOpen={setIsDropdownOpen} notifications={notifications} />
           <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
