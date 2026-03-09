@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from 'sonner';
+import { Toaster } from "sonner";
+import { CartProvider } from "@/context/CartContext"; // নতুন যোগ করা হয়েছে
 import "./globals.css";
 import GlobalChatBox from "@/components/GlobalChatBox";
 
@@ -29,9 +30,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100`}
       >
-        {children}
-        <Toaster position="top-right" richColors />
-        <GlobalChatBox />
+        <CartProvider>
+          {children}
+          <Toaster position="top-right" richColors />
+          <GlobalChatBox />
+        </CartProvider>
       </body>
     </html>
   );

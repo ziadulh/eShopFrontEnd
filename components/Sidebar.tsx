@@ -25,6 +25,15 @@ const menuItems = [
       { name: "Create", href: "/admin/users/create", icon: UserPlus },
     ],
   },
+  {
+    name: "Store",
+    icon: Users,
+    href: "/admin/categories",
+    children: [
+      { name: "Category", href: "/admin/categories", icon: List },
+      { name: "Product", href: "/admin/products", icon: UserPlus },
+    ],
+  },
   { name: "Roles", icon: ShieldCheck, href: "/admin/roles" },
   { name: "Settings", icon: Settings, href: "/admin/settings" },
 ];
