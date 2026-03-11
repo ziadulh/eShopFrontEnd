@@ -13,7 +13,7 @@ export default function CheckoutPage() {
 
   // পেমেন্ট প্রসেসিং স্টেট
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [bkashStatus, setBkashStatus] = useState<
+  const [paymentStatus, setPaymentStatus] = useState<
     "initiating" | "success" | "error"
   >("initiating");
 
@@ -37,28 +37,33 @@ export default function CheckoutPage() {
     if (formData.paymentMethod === "online") {
       setLoading(true);
       setShowPaymentModal(true);
-      setBkashStatus("initiating");
+      setPaymentStatus("initiating");
 
       try {
-        const response = await fetch("/api/bkash/create", {
+        const response = await fetch("/api/ssl-commerz/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: grandTotal }),
+          body: JSON.stringify({ 
+            amount: grandTotal,
+            customerName: formData.name,
+            customerPhone: formData.phone
+          }),
         });
 
         const data = await response.json();
-        console.log("Response from API:", data); // ব্রাউজার কনসোলে (F12) এটি দেখুন
+        console.log("Response from SSLCommerz API:", data);
 
-        if (data.bkashURL) {
-          window.location.href = data.bkashURL;
+        if (data.url) {
+          // SSLCommerz গেটওয়েতে রিডাইরেক্ট করা (এখানেই বিকাশ/নগদ/কার্ড সব থাকবে)
+          window.location.href = data.url;
         } else {
-          // বিকাশ থেকে আসা আসল এরর মেসেজটি দেখাবে
-          toast.error(data.statusMessage || data.error || "Failed to start");
-          setBkashStatus("error"); // আপনার মোডালে এরর দেখাবে
+          toast.error(data.error || "Failed to start payment session");
+          setPaymentStatus("error");
+          setTimeout(() => setShowPaymentModal(false), 3000);
         }
       } catch (error) {
-        setBkashStatus("error");
-        toast.error("bKash payment failed to start. Try again.");
+        setPaymentStatus("error");
+        toast.error("Payment failed to start. Try again.");
         setTimeout(() => setShowPaymentModal(false), 2000);
       } finally {
         setLoading(false);
@@ -72,11 +77,10 @@ export default function CheckoutPage() {
   const processCODOrder = async () => {
     setLoading(true);
     try {
-      // এখানে আপনার অর্ডারের সেভ লজিক থাকবে
       await new Promise((resolve) => setTimeout(resolve, 1500));
       toast.success("Order Placed Successfully!");
       clearCart();
-      router.push("/success-page"); // আপনার সাকসেস পেজ
+      router.push("/success-page");
     } catch (error) {
       toast.error("Order failed.");
     } finally {
@@ -99,38 +103,38 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 text-slate-900 dark:text-slate-100">
-      {/* --- bKash Processing Modal (ইউজারকে ওয়েট করানোর জন্য) --- */}
+      {/* --- SSLCommerz Processing Modal --- */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
 
           <div className="relative w-full max-w-[380px] bg-white rounded-[24px] overflow-hidden shadow-2xl text-slate-900">
-            <div className="bg-[#E2136E] p-6 text-white flex flex-col items-center">
+            <div className="bg-[#005a8b] p-6 text-white flex flex-col items-center">
               <img
-                src="https://www.logo.wine/a/logo/BKash/BKash-Icon-Logo.wine.svg"
-                className="w-16 h-16 bg-white rounded-full p-2 mb-2"
-                alt="bKash"
+                src="https://securepay.sslcommerz.com/gwprocess/v4/image/gw/sslc.png"
+                className="h-10 bg-white rounded-lg px-2 py-1 mb-2"
+                alt="SSLCommerz"
               />
-              <h3 className="text-sm font-bold">bKash Secure Payment</h3>
+              <h3 className="text-sm font-bold">Secure Checkout</h3>
             </div>
 
             <div className="p-10 text-center">
-              {bkashStatus === "initiating" && (
+              {paymentStatus === "initiating" && (
                 <div className="space-y-4">
                   <Loader2
-                    className="animate-spin mx-auto text-[#E2136E]"
+                    className="animate-spin mx-auto text-[#005a8b]"
                     size={40}
                   />
                   <p className="text-sm font-medium">
-                    Redirecting to bKash Gateway...
+                    Redirecting to Payment Gateway...
                   </p>
                   <p className="text-[10px] text-slate-400">
-                    Please do not close or refresh the window
+                    Bikash, Nagad, Cards & More
                   </p>
                 </div>
               )}
 
-              {bkashStatus === "error" && (
+              {paymentStatus === "error" && (
                 <div className="space-y-4">
                   <X className="mx-auto text-red-500" size={40} />
                   <p className="text-sm font-bold">Connection Failed</p>
@@ -197,9 +201,9 @@ export default function CheckoutPage() {
                   onClick={() =>
                     setFormData({ ...formData, paymentMethod: "online" })
                   }
-                  className={`flex-1 h-14 rounded-xl border-2 font-bold text-xs tracking-widest transition-all ${formData.paymentMethod === "online" ? "border-pink-600 bg-pink-50/10 text-pink-600 shadow-sm" : "border-slate-100"}`}
+                  className={`flex-1 h-14 rounded-xl border-2 font-bold text-xs tracking-widest transition-all ${formData.paymentMethod === "online" ? "border-blue-900 bg-blue-50/10 text-blue-900 shadow-sm" : "border-slate-100"}`}
                 >
-                  BKASH ONLINE
+                  PAY ONLINE
                 </button>
               </div>
             </div>
@@ -246,7 +250,7 @@ export default function CheckoutPage() {
             <div className="flex items-center gap-2 p-3 bg-white/5 rounded-xl border border-white/5">
               <ShieldCheck size={16} className="text-emerald-500" />
               <p className="text-[9px] text-slate-400 font-medium">
-                100% Secure Transaction via bKash
+                100% Secure Transaction via SSLCommerz
               </p>
             </div>
           </div>
