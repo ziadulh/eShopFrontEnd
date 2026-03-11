@@ -44,12 +44,15 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   const addToCart = (product: any) => {
     const productId = product.id || product._id;
+    let toastMessage: string | null = null;
+    let toastType: string = "success";
 
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === productId);
 
       if (existingItem) {
-        toast.info(`Increased quantity of ${product.name}`);
+        toastMessage = `Increased quantity of ${product.name}`;
+        toastType = "info";
         return prevCart.map((item) =>
           item.id === productId
             ? { ...item, quantity: item.quantity + 1 }
@@ -57,7 +60,8 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         );
       }
 
-      toast.success(`${product.name} added to cart!`);
+      toastMessage = `${product.name} added to cart!`;
+      toastType = "success";
       return [
         ...prevCart,
         {
@@ -71,6 +75,12 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         },
       ];
     });
+
+    if (toastMessage) {
+      toastType === "info"
+        ? toast.info(toastMessage)
+        : toast.success(toastMessage);
+    }
   };
 
   const updateQuantity = (id: string, newQuantity: number) => {
