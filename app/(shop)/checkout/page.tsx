@@ -33,44 +33,63 @@ export default function CheckoutPage() {
   // প্রধান ফাংশন: অর্ডার কনফার্ম করা
   const handleConfirmOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
-    if (formData.paymentMethod === "online") {
-      setLoading(true);
-      setShowPaymentModal(true);
-      setPaymentStatus("initiating");
+    try {
+      // ১. প্রথমে আমাদের ডাটাবেজে অর্ডারটি সেভ করা (COD এবং Online উভয়ের জন্য)
+      const orderResponse = await fetch("/api/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerDetails: formData,
+          items: cart,
+          totalAmount: grandTotal,
+          paymentMethod: formData.paymentMethod,
+        }),
+      });
 
-      try {
-        const response = await fetch("/api/ssl-commerz/create", {
+      const orderData = await orderResponse.json();
+
+      if (!orderResponse.ok) {
+        throw new Error(orderData.message || "Failed to create order");
+      }
+
+      // ২. পেমেন্ট মেথড অনুযায়ী পরবর্তী পদক্ষেপ
+      if (formData.paymentMethod === "online") {
+        setShowPaymentModal(true);
+        setPaymentStatus("initiating");
+
+        const sslResponse = await fetch("/api/ssl-commerz/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             amount: grandTotal,
             customerName: formData.name,
-            customerPhone: formData.phone
+            customerPhone: formData.phone,
+            orderId: orderData.orderId, // আমাদের জেনারেট করা অর্ডার আইডি পাঠানো
           }),
         });
 
-        const data = await response.json();
-        console.log("Response from SSLCommerz API:", data);
-
-        if (data.url) {
-          // SSLCommerz গেটওয়েতে রিডাইরেক্ট করা (এখানেই বিকাশ/নগদ/কার্ড সব থাকবে)
-          window.location.href = data.url;
+        const sslData = await sslResponse.json();
+        if (sslData.url) {
+          window.location.href = sslData.url;
         } else {
-          toast.error(data.error || "Failed to start payment session");
-          setPaymentStatus("error");
-          setTimeout(() => setShowPaymentModal(false), 3000);
+          throw new Error("SSL Session failed");
         }
-      } catch (error) {
-        setPaymentStatus("error");
-        toast.error("Payment failed to start. Try again.");
-        setTimeout(() => setShowPaymentModal(false), 2000);
-      } finally {
-        setLoading(false);
+      } else {
+        // ৩. ক্যাশ অন ডেলিভারি হলে সরাসরি সাকসেস পেজে (অর্ডার আইডি সহ)
+        toast.success("Order Placed Successfully!");
+        clearCart();
+        router.push(
+          `/success-page?orderId=${orderData.orderId}&status=pending`,
+        );
       }
-    } else {
-      // Cash on Delivery প্রসেস
-      processCODOrder();
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong");
+      setPaymentStatus("error");
+      setTimeout(() => setShowPaymentModal(false), 2000);
+    } finally {
+      setLoading(false);
     }
   };
 
